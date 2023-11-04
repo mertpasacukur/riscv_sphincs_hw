@@ -118,7 +118,8 @@ typedef enum logic [1:0] {
 typedef enum logic [1:0] {
     LSU_UNITSTRIDE,
     LSU_STRIDED,
-    LSU_INDEXED
+    LSU_INDEXED,
+    LSU_UNITSTRIDE_BIGENDIAN
 } lsu_stride;
 
 typedef struct packed {

@@ -218,6 +218,9 @@ module vproc_lsu import vproc_pkg::*; #(
             LSU_UNITSTRIDE: req_addr_d = pipe_in_valid_i ? (pipe_in_ctrl_i.init_addr ?
                 pipe_in_ctrl_i.xval : req_addr_q + 32'(VMEM_W / 8)
             ) : req_addr_q;
+            LSU_UNITSTRIDE_BIGENDIAN: req_addr_d = pipe_in_valid_i ? (pipe_in_ctrl_i.init_addr ? // PASA: (LSU_UNITSTRIDE || LSU_UNITSTRIDE_BIGENDIAN) sekilde yapinca calismiyordu!
+                pipe_in_ctrl_i.xval : req_addr_q + 32'(VMEM_W / 8)
+            ) : req_addr_q;
             LSU_STRIDED:    req_addr_d = pipe_in_valid_i ? (pipe_in_ctrl_i.init_addr ?
                 pipe_in_ctrl_i.xval : req_addr_q + pipe_in_ctrl_i.xval
             ) : req_addr_q;
@@ -245,7 +248,7 @@ module vproc_lsu import vproc_pkg::*; #(
     always_comb begin
         wdata_buf_d = DONT_CARE_ZERO ? '0 : 'x;
         wmask_buf_d = DONT_CARE_ZERO ? '0 : 'x;
-        if (pipe_in_ctrl_i.mode.lsu.stride == LSU_UNITSTRIDE) begin
+        if ((pipe_in_ctrl_i.mode.lsu.stride == LSU_UNITSTRIDE) || (pipe_in_ctrl_i.mode.lsu.stride == LSU_UNITSTRIDE_BIGENDIAN)) begin
             wdata_buf_d = vs3_data[VMEM_W-1:0];
             wmask_buf_d = (pipe_in_ctrl_i.mode.lsu.masked ? vmsk_data : '1) & wdata_unit_vl_mask;
         end else begin
@@ -426,6 +429,11 @@ module vproc_lsu import vproc_pkg::*; #(
     always_comb begin
         if (state_rdata_q.mode.stride == LSU_UNITSTRIDE) begin
             pipe_out_res_o = rdata_buf_q;
+        end else if (state_rdata_q.mode.stride == LSU_UNITSTRIDE_BIGENDIAN) begin
+            pipe_out_res_o[7:0] = rdata_buf_q[31:24];
+            pipe_out_res_o[15:8] = rdata_buf_q[23:16];
+            pipe_out_res_o[23:16] = rdata_buf_q[15:8];
+            pipe_out_res_o[31:24] = rdata_buf_q[7:0];
         end else begin
             pipe_out_res_o = DONT_CARE_ZERO ? '0 : 'x;
             unique case (state_rdata_q.mode.eew)
@@ -438,7 +446,7 @@ module vproc_lsu import vproc_pkg::*; #(
                 pipe_out_res_o = rdata_buf_q;
             end
         end
-        pipe_out_mask_o = (state_rdata_q.mode.stride == LSU_UNITSTRIDE) ? rdata_unit_vdmsk : {(VMEM_W/8){rdata_stri_vdmsk}};
+        pipe_out_mask_o = ((state_rdata_q.mode.stride == LSU_UNITSTRIDE) || (state_rdata_q.mode.stride == LSU_UNITSTRIDE_BIGENDIAN)) ? rdata_unit_vdmsk : {(VMEM_W/8){rdata_stri_vdmsk}};
     end
 
 

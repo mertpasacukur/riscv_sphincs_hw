@@ -733,7 +733,7 @@ module vproc_pipeline import vproc_pkg::*; #(
         unpack_ctrl.vl_part      = (state_q.count.val[COUNTER_W-2:$clog2(MAX_OP_W/COUNTER_OP_W)] == state_q.vl[CFG_VL_W-1:$clog2(MAX_OP_W/8)]) ?  state_q.vl[$clog2(MAX_OP_W/8)-1:0] : '1;
         unpack_ctrl.vl_part_0    = (state_q.count.val[COUNTER_W-2:$clog2(MAX_OP_W/COUNTER_OP_W)] >  state_q.vl[CFG_VL_W-1:$clog2(MAX_OP_W/8)]) |  state_q.vl_0;
         unpack_ctrl.last_vl_part = (state_q.count.val[COUNTER_W-2:$clog2(MAX_OP_W/COUNTER_OP_W)] == state_q.vl[CFG_VL_W-1:$clog2(MAX_OP_W/8)]) & ~state_q.vl_0;
-        if ((UNITS[UNIT_LSU ] & (state_q.unit == UNIT_LSU ) & (state_q.mode.lsu.stride != LSU_UNITSTRIDE)) |
+        if ((UNITS[UNIT_LSU ] & (state_q.unit == UNIT_LSU ) & ((state_q.mode.lsu.stride != LSU_UNITSTRIDE) && (state_q.mode.lsu.stride != LSU_UNITSTRIDE_BIGENDIAN))) |
             (UNITS[UNIT_ELEM] & (state_q.unit == UNIT_ELEM))
         ) begin
             unpack_ctrl.vl_part_0 = (state_q.count.val[COUNTER_W-2:0] >  state_q.vl[CFG_VL_W-1:$clog2(COUNTER_OP_W/8)]) |  state_q.vl_0;

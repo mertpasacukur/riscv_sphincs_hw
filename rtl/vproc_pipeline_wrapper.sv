@@ -387,7 +387,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 VSEW_32: state_init.count_inc = COUNT_INC_4;
                 default: ;
             endcase
-            if (pipe_in_data_i.mode.lsu.stride == LSU_UNITSTRIDE) begin
+            if ((pipe_in_data_i.mode.lsu.stride == LSU_UNITSTRIDE) || (pipe_in_data_i.mode.lsu.stride == LSU_UNITSTRIDE_BIGENDIAN)) begin
                 state_init.count_inc = COUNT_INC_MAX;
             end
         end
@@ -461,11 +461,11 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
         state_init.res_vaddr     = pipe_in_data_i.rd.addr;
 
         if (unit_lsu) begin
-            state_init.op_flags[0       ].elemwise =  pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE;
+            state_init.op_flags[0       ].elemwise =  (pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE) && (pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE_BIGENDIAN);
             state_init.op_flags[1       ].vreg     =  pipe_in_data_i.mode.lsu.store;
-            state_init.op_flags[1       ].elemwise =  pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE;
+            state_init.op_flags[1       ].elemwise =  (pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE) && (pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE_BIGENDIAN);
             state_init.op_vaddr[1       ]          =  pipe_in_data_i.rd.addr;
-            state_init.op_flags[OP_CNT-1].elemwise =  pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE;
+            state_init.op_flags[OP_CNT-1].elemwise =  (pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE) && (pipe_in_data_i.mode.lsu.stride != LSU_UNITSTRIDE_BIGENDIAN);
             state_init.res_vreg[0       ]          = ~pipe_in_data_i.mode.lsu.store;
         end
         if (unit_alu) begin

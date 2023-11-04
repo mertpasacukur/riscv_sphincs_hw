@@ -205,6 +205,9 @@ module vproc_decoder #(
                                     endcase
                                 end
                             end
+                            5'b10001: begin // unit-strided bigendian load
+                                mode_o.lsu.stride = LSU_UNITSTRIDE_BIGENDIAN;
+                            end
                             5'b10000: begin // fault-only-first load
                                 instr_illegal = instr_i[6:0] == 7'h27; // illegal for stores
                             end
