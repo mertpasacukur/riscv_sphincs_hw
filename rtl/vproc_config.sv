@@ -24,7 +24,7 @@ package vproc_config;
     import vproc_pkg::*;
 
     parameter vreg_type    VREG_TYPE                   = VREG_GENERIC;
-    parameter int unsigned VREG_W                      = 512;
+    parameter int unsigned VREG_W                      = 2048; // Changed from 512 to 2048
     parameter int unsigned VPORT_RD_CNT                = 3;
     parameter int unsigned VPORT_RD_W   [VPORT_RD_CNT] = '{default: VREG_W};
     parameter int unsigned VPORT_WR_CNT                = 1;
@@ -34,7 +34,7 @@ package vproc_config;
     parameter bit [UNIT_CNT-1:0] PIPE_UNITS [PIPE_CNT] = '{
         (UNIT_CNT'(1) << UNIT_LSU) | (UNIT_CNT'(1) << UNIT_ALU) | (UNIT_CNT'(1) << UNIT_ELEM), (UNIT_CNT'(1) << UNIT_MUL) | (UNIT_CNT'(1) << UNIT_SLD)
     };
-    parameter int unsigned PIPE_W           [PIPE_CNT] = '{32, 128};
+    parameter int unsigned PIPE_W           [PIPE_CNT] = '{32, 512}; // Second parameter changed from 128 to 512 to provide one time conversion for VSLD units of 512 bits of array
     parameter int unsigned PIPE_VPORT_CNT   [PIPE_CNT] = '{1, 1};
     parameter int unsigned PIPE_VPORT_IDX   [PIPE_CNT] = '{1, 2};
     parameter int unsigned PIPE_VPORT_WR    [PIPE_CNT] = '{0, 0};

@@ -1320,6 +1320,18 @@ module vproc_decoder #(
                             mode_o.sld.slide1 = 1'b1;
                             mode_o.sld.masked = instr_masked;
                         end
+                        {6'b010110, 3'b100}: begin  // vrotup VX (010110 is currently not being used by another vector instruction, 100 is for Vector-Scalar instruction)
+                            unit_o            = UNIT_SLD;
+                            mode_o.sld.dir    = ROT_UP;
+                            mode_o.sld.slide1 = 1'b0;
+                            mode_o.sld.masked = instr_masked;
+                        end
+                        {6'b111001, 3'b100}: begin  // vrotdown VX  (111001 is currently not being used by another vector instruction, 100 is for Vector-Scalar instruction)
+                            unit_o            = UNIT_SLD;
+                            mode_o.sld.dir    = ROT_DOWN;
+                            mode_o.sld.slide1 = 1'b0;
+                            mode_o.sld.masked = instr_masked;
+                        end
 
 
                         // ELEM unit:

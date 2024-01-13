@@ -4,7 +4,7 @@
 
 
 module demo_top #(
-        parameter              RAM_FPATH      = "",//"C:/Users/QP/Desktop/Yuksek_Lisans_DERS/Tez/RISCV/Makefile/riscv_sphincs.vmem",
+        parameter              RAM_FPATH      = "C:/Users/QP/Desktop/Yuksek_Lisans_DERS/Tez/RISCV/Makefile/vmem/riscv_sphincs.vmem",
         parameter int unsigned RAM_SIZE       = 262144,
         parameter bit          DIFF_CLK       = 1'b0,
         parameter real         SYSCLK_PER     = 10.0,

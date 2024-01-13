@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 
-module vproc_pipeline_wrapper import vproc_pkg::*; #(
+module vproc_pipeline_wrapper import vproc_pkg::*; import vproc_custom::*; #(
         parameter int unsigned          VREG_W             = 128,  // width in bits of vector registers
         parameter int unsigned          CFG_VL_W           = 7,    // width of VL reg in bits (= log2(VREG_W))
         parameter int unsigned          XIF_ID_W           = 3,    // width in bits of instruction IDs
@@ -221,6 +221,8 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
     assign unit_alu  = UNITS[UNIT_ALU ] & (pipe_in_data_i.unit == UNIT_ALU );
     assign unit_mul  = UNITS[UNIT_MUL ] & (pipe_in_data_i.unit == UNIT_MUL );
     assign unit_sld  = UNITS[UNIT_SLD ] & (pipe_in_data_i.unit == UNIT_SLD );
+    //(* keep = "true" *) logic unit_sld;
+
     assign unit_elem = UNITS[UNIT_ELEM] & (pipe_in_data_i.unit == UNIT_ELEM);
 
     // identify the type of data that vs2 supplies for ELEM instructions
@@ -325,6 +327,9 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
         endcase
     end
 
+    custom_instr_signals custom_instr_signals_o; // = custom_instr_signals'('0);
+    //(* keep = "true" *) custom_instr_signals custom_instr_signals_o;
+
     // set the initial pipeline state for the incoming instruction
     state_t state_init;
     always_comb begin
@@ -333,7 +338,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
         state_init.count_extra_phase = unit_sld & (pipe_in_data_i.mode.sld.dir == SLD_DOWN);
         state_init.alt_count_init    = '0;
         if (unit_sld) begin
-            state_init.alt_count_init = DONT_CARE_ZERO ? '0 : 'x;
+                        state_init.alt_count_init = DONT_CARE_ZERO ? '0 : 'x;
             if (pipe_in_data_i.mode.sld.slide1) begin
                 if (pipe_in_data_i.mode.sld.dir == SLD_UP) begin
                     // slide counter is all zeroes for up slide, except for a byte slide of 4
@@ -359,8 +364,9 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                     VSEW_32: state_init.alt_count_init = -{1'b0, pipe_in_data_i.rs1.r.xval[$clog2(MAX_OP_W/8)-2 +: ALT_COUNT_W-1]};
                     default: ;
                 endcase
-            end else begin
-                unique case (pipe_in_data_i.vsew)
+            end
+            else if (pipe_in_data_i.mode.sld.dir == SLD_DOWN) begin
+               unique case (pipe_in_data_i.vsew)
                     VSEW_8:  state_init.alt_count_init = ALT_COUNT_W'((
                         {4'b1111, {(ALT_COUNT_W-4){1'b0}}, {$clog2(MAX_OP_W/8){1'b1}}} +
                         {1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+2:0]      }
@@ -375,6 +381,12 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                     ) >> $clog2(MAX_OP_W/8));
                     default: ;
                 endcase
+            end
+            else if (pipe_in_data_i.mode.sld.dir == ROT_UP) begin
+                state_init.alt_count_init = 0;
+            end
+            else if (pipe_in_data_i.mode.sld.dir == ROT_DOWN) begin
+                state_init.alt_count_init = 0;
             end
         end
 
@@ -412,23 +424,55 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
         state_init.vl             = pipe_in_data_i.vl;
         state_init.vl_0           = pipe_in_data_i.vl_0;
         state_init.xval           = pipe_in_data_i.rs1.r.xval;
+
+        custom_instr_signals_o.vector_length = pipe_in_data_i.vl;
+
         if (unit_sld & ~pipe_in_data_i.mode.sld.slide1) begin
             // convert element offset to byte offset for the relevant section of rs1 and negate
             // for down slides
             if (pipe_in_data_i.mode.sld.dir == SLD_UP) begin
+                custom_instr_signals_o.rotation_amount = 0;
                 unique case (pipe_in_data_i.vsew)
                     VSEW_8:  state_init.xval[$clog2(VREG_W/8)+3:0] =  {1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+2:0]      };
                     VSEW_16: state_init.xval[$clog2(VREG_W/8)+3:0] =  {1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+1:0], 1'b0};
                     VSEW_32: state_init.xval[$clog2(VREG_W/8)+3:0] =  {1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+0:0], 2'b0};
                     default: ;
                 endcase
-            end else begin
+            end
+            else if (pipe_in_data_i.mode.sld.dir == SLD_DOWN) begin
+                custom_instr_signals_o.rotation_amount = 0;            
                 unique case (pipe_in_data_i.vsew)
                     VSEW_8:  state_init.xval[$clog2(VREG_W/8)+3:0] = -{1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+2:0]      };
                     VSEW_16: state_init.xval[$clog2(VREG_W/8)+3:0] = -{1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+1:0], 1'b0};
                     VSEW_32: state_init.xval[$clog2(VREG_W/8)+3:0] = -{1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+0:0], 2'b0};
                     default: ;
                 endcase
+            end
+            else if (pipe_in_data_i.mode.sld.dir == ROT_UP) begin    
+                custom_instr_signals_o.temp_rotation_amount = {1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+0:0], 2'b0};
+                if ((custom_instr_signals_o.temp_rotation_amount) == 0 || (custom_instr_signals_o.temp_rotation_amount) == 4 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 8 || (custom_instr_signals_o.temp_rotation_amount) == 12 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 16 || (custom_instr_signals_o.temp_rotation_amount) == 20 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 24 || (custom_instr_signals_o.temp_rotation_amount) == 28 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 32 || (custom_instr_signals_o.temp_rotation_amount) == 36 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 40 || (custom_instr_signals_o.temp_rotation_amount) == 44 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 48 || (custom_instr_signals_o.temp_rotation_amount) == 52 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 56 || (custom_instr_signals_o.temp_rotation_amount) == 60) begin
+                        custom_instr_signals_o.rotation_amount = custom_instr_signals_o.temp_rotation_amount;
+                    end                
+            end
+           else if (pipe_in_data_i.mode.sld.dir == ROT_DOWN) begin
+                custom_instr_signals_o.temp_rotation_amount = {1'b0, pipe_in_data_i.rs1.r.xval[$clog2(VREG_W/8)+0:0], 2'b0};
+                if ((custom_instr_signals_o.temp_rotation_amount) == 0 || (custom_instr_signals_o.temp_rotation_amount) == 4 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 8 || (custom_instr_signals_o.temp_rotation_amount) == 12 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 16 || (custom_instr_signals_o.temp_rotation_amount) == 20 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 24 || (custom_instr_signals_o.temp_rotation_amount) == 28 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 32 || (custom_instr_signals_o.temp_rotation_amount) == 36 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 40 || (custom_instr_signals_o.temp_rotation_amount) == 44 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 48 || (custom_instr_signals_o.temp_rotation_amount) == 52 ||
+                    (custom_instr_signals_o.temp_rotation_amount) == 56 || (custom_instr_signals_o.temp_rotation_amount) == 60) begin
+                        custom_instr_signals_o.rotation_amount = -custom_instr_signals_o.temp_rotation_amount;
+                    end
             end
         end
 
@@ -564,6 +608,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -629,6 +674,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -694,6 +740,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -759,6 +806,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -824,6 +872,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -889,6 +938,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -954,6 +1004,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -1019,6 +1070,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end
@@ -1084,6 +1136,7 @@ module vproc_pipeline_wrapper import vproc_pkg::*; #(
                 .DONT_CARE_ZERO      ( DONT_CARE_ZERO      )
             ) pipeline (
                 .pipe_in_state_i     ( state_init          ),
+                .custom_instr_signals_i (custom_instr_signals_o),
                 .*
             );
         end

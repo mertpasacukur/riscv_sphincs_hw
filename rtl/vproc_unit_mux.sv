@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 
-module vproc_unit_mux import vproc_pkg::*; #(
+module vproc_unit_mux import vproc_pkg::*; import vproc_custom::*; #(
         parameter bit [UNIT_CNT-1:0]                 UNITS           = '0,
         parameter int unsigned                       XIF_ID_W        = 3,
         parameter int unsigned                       XIF_ID_CNT      = 8,
@@ -64,7 +64,9 @@ module vproc_unit_mux import vproc_pkg::*; #(
         input  logic                                 xreg_ready_i,
         output logic    [XIF_ID_W              -1:0] xreg_id_o,
         output logic    [4:0]                        xreg_addr_o,
-        output logic    [31:0]                       xreg_data_o
+        output logic    [31:0]                       xreg_data_o,
+
+        input custom_instr_signals                   custom_instr_signals_i
     );
 
     logic [UNIT_CNT-1:0] unit_in_valid;
@@ -172,7 +174,8 @@ module vproc_unit_mux import vproc_pkg::*; #(
                     .xreg_ready_i              ( xreg_ready                 ),
                     .xreg_id_o                 ( xreg_id                    ),
                     .xreg_addr_o               ( xreg_addr                  ),
-                    .xreg_data_o               ( xreg_data                  )
+                    .xreg_data_o               ( xreg_data                  ),
+                    .custom_instr_signals_i    ( custom_instr_signals_i     )
                 );
 
                 if (op_unit'(i) == UNIT_LSU) begin

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 
-module vproc_pipeline import vproc_pkg::*; #(
+module vproc_pipeline import vproc_pkg::*; import vproc_custom::*; #(
         parameter int unsigned          VREG_W              = 128,  // width in bits of vector registers
         parameter int unsigned          CFG_VL_W            = 7,    // width of VL reg in bits (= log2(VREG_W))
         parameter int unsigned          XIF_ID_W            = 3,    // width in bits of instruction IDs
@@ -91,7 +91,9 @@ module vproc_pipeline import vproc_pkg::*; #(
         input  logic                    xreg_ready_i,
         output logic [XIF_ID_W-1:0]     xreg_id_o,
         output logic [4:0]              xreg_addr_o,
-        output logic [31:0]             xreg_data_o
+        output logic [31:0]             xreg_data_o,
+
+        input  custom_instr_signals     custom_instr_signals_i
     );
 
     if ((MAX_OP_W & (MAX_OP_W - 1)) != 0 || MAX_OP_W < 32 || MAX_OP_W >= VREG_W) begin
@@ -703,7 +705,7 @@ module vproc_pipeline import vproc_pkg::*; #(
 
     logic  unpack_valid;
     ctrl_t unpack_ctrl;
-    always_comb begin
+        always_comb begin
         unpack_valid                = state_valid_q & ~state_stall & ~state_wait_alt_count_q;
         unpack_ctrl.count_mul       = state_q.count.part.mul;
         unpack_ctrl.first_cycle     = state_q.first_cycle;
@@ -920,7 +922,8 @@ module vproc_pipeline import vproc_pkg::*; #(
         .xreg_ready_i              ( xreg_ready_i             ),
         .xreg_id_o                 ( xreg_id_o                ),
         .xreg_addr_o               ( xreg_addr_o              ),
-        .xreg_data_o               ( xreg_data_o              )
+        .xreg_data_o               ( xreg_data_o              ),
+        .custom_instr_signals_i    ( custom_instr_signals_i   )
     );
 
 

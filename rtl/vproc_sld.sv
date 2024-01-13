@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 
-module vproc_sld #(
+module vproc_sld import vproc_pkg::*; import vproc_custom::*; #(
         parameter int unsigned        SLD_OP_W       = 64,   // SLD unit operand width in bits
         parameter bit                 BUF_OPERANDS   = 1'b1, // insert pipeline stage after operand extraction
         parameter bit                 BUF_RESULTS    = 1'b1, // insert pipeline stage after computing result
@@ -24,11 +24,12 @@ module vproc_sld #(
         input  logic                  pipe_out_ready_i,
         output CTRL_T                 pipe_out_ctrl_o,
         output logic [SLD_OP_W  -1:0] pipe_out_res_o,
-        output logic [SLD_OP_W/8-1:0] pipe_out_mask_o
+        output logic [SLD_OP_W/8-1:0] pipe_out_mask_o,
+
+        input  custom_instr_signals custom_instr_signals_i
     );
 
     import vproc_pkg::*;
-
 
     ///////////////////////////////////////////////////////////////////////////
     // SLD BUFFERS
@@ -201,28 +202,38 @@ module vproc_sld #(
 
 
     ///////////////////////////////////////////////////////////////////////////
-    // SLIDING OPERATION
+    // SLIDING/ROTATION OPERATION
 
     logic [$clog2(SLD_OP_W/8)-1:0] slide_bytes;
     assign slide_bytes = state_ex_q.xval[$clog2(SLD_OP_W/8)-1:0];
+    int new_pos;
 
     always_comb begin
         result_d      = DONT_CARE_ZERO ? '0 : 'x;
         result_mask_d = DONT_CARE_ZERO ? '0 : 'x;
 
-        for (int i = 0; i < SLD_OP_W/8; i++) begin
-            if ($clog2(SLD_OP_W/8)'(i) < slide_bytes) begin
-                result_d     [i*8 +: 8] = operand_low_q [($clog2(SLD_OP_W)'(SLD_OP_W/8 + i) - {3'b000, slide_bytes}) * 8 +: 8];
-                result_mask_d[i]        = operand_low_valid_q;
-            end else begin
-                result_d     [i*8 +: 8] = operand_high_q[($clog2(SLD_OP_W)'(             i) - {3'b000, slide_bytes}) * 8 +: 8];
-                result_mask_d[i]        = state_ex_q.alt_count_valid;
+        /*if (custom_instr_signals_i.rotation_amount == 0) begin // meaning that the underlying operation is slide, not rotation
+            for (int i = 0; i < SLD_OP_W/8; i++) begin
+                if ($clog2(SLD_OP_W/8)'(i) < slide_bytes) begin
+                    result_d     [i*8 +: 8] = operand_low_q [($clog2(SLD_OP_W)'(SLD_OP_W/8 + i) - {3'b000, slide_bytes}) * 8 +: 8];
+                    result_mask_d[i]        = operand_low_valid_q;
+                end else begin
+                    result_d     [i*8 +: 8] = operand_high_q[($clog2(SLD_OP_W)'(             i) - {3'b000, slide_bytes}) * 8 +: 8];
+                    result_mask_d[i]        = state_ex_q.alt_count_valid;
+                end
             end
-        end
 
-        if (state_ex_q.mode.sld.slide1) begin
-            result_mask_d = {(SLD_OP_W/8){1'b1}};
-        end
+            if (state_ex_q.mode.sld.slide1) begin
+                result_mask_d = {(SLD_OP_W/8){1'b1}};
+            end        
+        end else begin*/
+            for (int i = 0; i < SLD_OP_W/8; i++) begin
+                // Calculate new position for rotation
+                new_pos = (i - custom_instr_signals_i.rotation_amount);
+                
+                result_d     [i*8 +: 8] = operand_high_q[new_pos*8 +: 8];    
+                result_mask_d[i] = state_ex_q.alt_count_valid;
+            end
     end
 
 

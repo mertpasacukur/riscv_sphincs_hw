@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 
-module vproc_unit_wrapper import vproc_pkg::*; #(
+module vproc_unit_wrapper import vproc_pkg::*; import vproc_custom::*; #(
         parameter op_unit                            UNIT            = UNIT_ALU,
         parameter int unsigned                       XIF_ID_W        = 3,
         parameter int unsigned                       XIF_ID_CNT      = 8,
@@ -64,9 +64,11 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
         input  logic                                 xreg_ready_i,
         output logic    [XIF_ID_W              -1:0] xreg_id_o,
         output logic    [4:0]                        xreg_addr_o,
-        output logic    [31:0]                       xreg_data_o
-    );
+        output logic    [31:0]                       xreg_data_o,
 
+        input custom_instr_signals                   custom_instr_signals_i
+    );
+    
     generate
         if (UNIT == UNIT_LSU) begin
             CTRL_T                 unit_out_ctrl;
@@ -248,7 +250,8 @@ module vproc_unit_wrapper import vproc_pkg::*; #(
                 .pipe_out_ready_i ( pipe_out_ready_i                            ),
                 .pipe_out_ctrl_o  ( unit_out_ctrl                               ),
                 .pipe_out_res_o   ( unit_out_res                                ),
-                .pipe_out_mask_o  ( unit_out_mask                               )
+                .pipe_out_mask_o  ( unit_out_mask                               ),
+                .custom_instr_signals_i  ( custom_instr_signals_i               )
             );
             always_comb begin
                 pipe_out_instr_id_o = unit_out_ctrl.id;
